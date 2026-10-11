@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>دفتر الحسابات البسيط</title>
-    <!-- Tailwind CSS (مبني مسبقاً: tailwind.css) -->
+    <!-- Tailwind CSS -->
     <link rel="stylesheet" href="tailwind.css">
     <!-- خط Cairo العربي -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
@@ -59,6 +59,14 @@
         </div>
     </div>
 
+    <!-- تنبيه النسخ الاحتياطي الأسبوعي -->
+    <div id="backup-reminder-banner" class="hidden bg-amber-500 text-slate-950 px-4 py-2 text-xs font-bold flex justify-between items-center no-print shadow">
+        <span>⚠️ مرّ أكثر من 7 أيام منذ آخر نسخة احتياطية (Excel/JSON). يُفضل أخذ نسخة لحفظ بياناتك!</span>
+        <div class="flex gap-2">
+            <button onclick="exportExcel()" class="bg-slate-900 text-white px-2 py-1 rounded shadow">تصدير Excel الآن</button>
+            <button onclick="dismissBackupReminder()" class="bg-slate-200 px-2 py-1 rounded">إخفاء</button>
+        </div>
+    </div>
 
     <!-- Header -->
     <header class="bg-slate-900 dark:bg-slate-950 text-white py-4 px-6 shadow-md no-print border-b dark:border-slate-800">
@@ -260,7 +268,7 @@
 
     <!-- Modal: إعدادات النظام -->
     <div id="modal-settings" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-50 no-print">
-        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
             <h3 class="text-lg font-bold text-slate-800 dark:text-slate-100">إعدادات النظام والمظهر</h3>
             <form id="form-settings" onsubmit="saveSettings(event)" class="space-y-4">
                 <div class="owner-only">
@@ -291,6 +299,19 @@
                     </label>
                 </div>
 
+                <!-- إعدادات Google Sheets (النسخة الحية) -->
+                <div class="owner-only border-b dark:border-slate-700 pb-3 space-y-2">
+                    <div class="text-sm font-bold text-slate-700 dark:text-slate-300">ربط Google Sheets (النسخة الحية)</div>
+                    <div>
+                        <label class="block text-[11px] text-slate-500 mb-1">رابط Webhook (Google Apps Script URL)</label>
+                        <input type="url" id="input-sheets-url" dir="ltr" placeholder="https://script.google.com/macros/s/.../exec" class="w-full border dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 rounded-xl p-2 text-xs outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-500 mb-1">الرمز السري (Secret Token)</label>
+                        <input type="text" id="input-sheets-secret" dir="ltr" placeholder="أدخل رمزاً سرياً مطابقاً للسكريبت" class="w-full border dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 rounded-xl p-2 text-xs outline-none">
+                    </div>
+                </div>
+
                 <div class="owner-only border-b dark:border-slate-700 pb-3 space-y-2">
                     <div class="text-sm font-bold text-slate-700 dark:text-slate-300">الفريق</div>
                     <div class="flex gap-2">
@@ -300,13 +321,16 @@
                 </div>
 
                 <div class="owner-only border-b dark:border-slate-700 pb-3 space-y-2">
-                    <div class="text-sm font-bold text-slate-700 dark:text-slate-300">النسخ الاحتياطي</div>
+                    <div class="text-sm font-bold text-slate-700 dark:text-slate-300">النسخ الاحتياطي والتصدير</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="exportExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 rounded-xl transition">📊 تصدير Excel</button>
+                        <button type="button" onclick="exportData()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2.5 rounded-xl transition">⬇️ تصدير JSON</button>
+                    </div>
                     <div class="flex gap-2">
-                        <button type="button" onclick="exportData()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 rounded-xl transition">⬇️ تصدير البيانات</button>
                         <button type="button" onclick="document.getElementById('input-import-file').click()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2.5 rounded-xl transition">⬆️ استيراد بيانات</button>
                         <input type="file" id="input-import-file" accept=".json,application/json" class="hidden" onchange="importData(event)">
                     </div>
-                    <p class="text-xs text-slate-400">الاستيراد يضيف الحسابات ويستبدل ما يحمل نفس المعرّف، ولا يحذف أي حساب موجود.</p>
+                    <p class="text-xs text-slate-400">تصدير Excel يعطيك ملفاً متعدد الأوراق (CSV) للعملاء، الموردين، وكل الحركات.</p>
                 </div>
 
                 <div class="flex gap-2 pt-2">
@@ -480,7 +504,6 @@
             console.warn("Firebase غير موصول بعد.");
         }
 
-        // تخزين محلي لبيانات Firestore ليعمل التطبيق بدون إنترنت
         try {
             if (db) {
                 db.enablePersistence({ synchronizeTabs: true }).catch((err) => {
@@ -531,6 +554,7 @@
                 document.documentElement.classList.remove('dark');
             }
             updateHomeShopNameDisplay();
+            checkBackupReminder();
         }
 
         function toggleDarkMode(enabled) {
@@ -545,6 +569,49 @@
 
         function esc(v) {
             return String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        // --- فحص موعد التذكير الأسبوعي للنسخ الاحتياطي ---
+        function checkBackupReminder() {
+            const last = localStorage.getItem('app_last_backup_time');
+            const now = Date.now();
+            const sevenDays = 7 * 24 * 60 * 60 * 1000;
+            const banner = document.getElementById('backup-reminder-banner');
+            if (!banner) return;
+            if (!last || (now - parseInt(last)) > sevenDays) {
+                banner.classList.remove('hidden');
+            } else {
+                banner.classList.add('hidden');
+            }
+        }
+
+        function dismissBackupReminder() {
+            localStorage.setItem('app_last_backup_time', Date.now().toString());
+            const banner = document.getElementById('backup-reminder-banner');
+            if (banner) banner.classList.add('hidden');
+        }
+
+        // --- إرسال البيانات للنسخة الحية عبر Google Sheets Webhook ---
+        function notifyGoogleSheets(actionType, payload) {
+            const url = (localStorage.getItem('app_sheets_url') || '').trim();
+            const secret = (localStorage.getItem('app_sheets_secret') || '').trim();
+            if (!url || !secret) return;
+
+            const data = {
+                secret: secret,
+                action: actionType,
+                timestamp: new Date().toISOString(),
+                actor: me ? me.name : 'مستخدم',
+                ...payload
+            };
+
+            // إرسال في الخلفية دون انتظار أو إزعاج المستخدم إذا انقطع الإنترنت
+            fetch(url, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            }).catch(err => console.warn('تعذّر إرسال التحديث لـ Google Sheets:', err));
         }
 
         // --- حالة الاتصال والمزامنة ---
@@ -568,7 +635,6 @@
         window.addEventListener('online', updateSyncBadge);
         window.addEventListener('offline', updateSyncBadge);
 
-        // الكتابة تُحفظ محلياً فوراً وتُرفع للسحابة عند توفر الاتصال، فلا ننتظر تأكيد الخادم
         function dbWrite(promise) {
             promise.catch((err) => {
                 console.error(err);
@@ -584,7 +650,6 @@
                 /offline|network/i.test((err && err.message) || '');
         }
 
-        // تعديل قائمة الحركات: معاملة آمنة عند الاتصال، وكتابة محلية مؤجلة بدون اتصال
         async function commitTransactions(section, person, mutator) {
             const ref = db.collection(section).doc(person.id);
             if (navigator.onLine) {
@@ -610,12 +675,12 @@
             return `${y}-${m}-${day}`;
         }
 
-        function isoToDisplay(iso) { // yyyy-mm-dd -> dd/mm/yyyy
+        function isoToDisplay(iso) {
             const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
             return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
         }
 
-        function displayToISO(str) { // dd/mm/yyyy -> yyyy-mm-dd
+        function displayToISO(str) {
             const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(String(str || '').trim());
             return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : '';
         }
@@ -634,7 +699,7 @@
             return state[state.activeSection].find(p => p.id === state.currentPersonId);
         }
 
-        function normalizePhone(raw) { // أرقام جزائرية: 0XXXXXXXXX -> 213XXXXXXXXX
+        function normalizePhone(raw) {
             let d = String(raw || '').replace(/\D/g, '');
             if (d.startsWith('00')) d = d.slice(2);
             else if (d.startsWith('0')) d = '213' + d.slice(1);
@@ -647,10 +712,9 @@
             window.location.href = 'tel:' + String(p.phone).replace(/[^\d+]/g, '');
         }
 
-        // --- إرسال فاتورة / وصل / كشف عبر واتساب ---
-        const SEND_URL_MAX = 6000;   // حد آمن لطول النص بعد الترميز داخل رابط واتساب
+        const SEND_URL_MAX = 6000;
         const SEP = '━━━━━━━━━━';
-        let sendCtx = null;          // { section, personId, txId }
+        let sendCtx = null;
 
         function getShopName() {
             const v = (localStorage.getItem('app_shop_name') || '').trim();
@@ -789,8 +853,7 @@
             closeModal('modal-send');
         }
 
-        // --- ملف PDF بتصميم كشف الحساب (يُرسم بدون أي مكتبة خارجية) ---
-        const PW = 1240, PH = 1754, PM = 60, PS = 0.88;   // PS: مقياس حجم الخط
+        const PW = 1240, PH = 1754, PM = 60, PS = 0.88;
         const PFONT = "Cairo, 'Segoe UI', Arial, sans-serif";
 
         function pdfNum(n) {
@@ -838,7 +901,7 @@
             const out = []; let line = '';
             for (let i = 0; i < words.length; i++) {
                 let w = words[i];
-                while (c.measureText(w).width > maxW && w.length > 1) w = w.slice(0, -1);   // كلمة أطول من العمود
+                while (c.measureText(w).width > maxW && w.length > 1) w = w.slice(0, -1);
                 const t = line ? line + ' ' + w : w;
                 if (c.measureText(t).width > maxW && line) {
                     out.push(line); line = w;
@@ -854,7 +917,6 @@
             return out.length ? out : [''];
         }
 
-        // مبلغ + وحدة (الرقم على اليمين والوحدة على يساره)
         function pdfMoney(c, n, x, y, size, opt) {
             opt = opt || {};
             const w = pdfText(c, pdfNum(n), x, y, size, opt);
@@ -862,7 +924,6 @@
         }
 
         function pdfBuildRows(section, person, kind, txId) {
-            // يعيد { rows, boxes, title, period }
             const isCust = section === 'customers';
             const start = parseFloat(person.initialBalance) || 0;
             const list = sortedTransactions(person);
@@ -909,7 +970,6 @@
                 pdfRRect(c, L, 66, 320, 66, 10, '#f3f4f6', '#000000', 3);
                 pdfText(c, d.title, L + 160, 100, 34, { bold: true, align: 'center' });
                 c.fillStyle = '#000000'; c.fillRect(L, 195, PW - 2 * PM, 5);
-                // صندوق المعلومات
                 pdfRRect(c, L, 225, PW - 2 * PM, 140, 16, null, '#111827', 2);
                 pdfText(c, `${isCust ? 'اسم العميل' : 'اسم المورد'}: ${person.name}`, R - 28, 267, 33, { bold: true, maxW: 520 });
                 pdfText(c, `${isCust ? 'رقم هاتف العميل' : 'رقم هاتف المورد'}: ${person.phone || 'غير مدون'}`, R - 28, 327, 30, { color: '#111827' });
@@ -919,7 +979,6 @@
             } else {
                 y = 90;
             }
-            // الجدول
             if (rows.length) {
                 const cols = [['التاريخ', 150], ['الفاتورة / السند', 215], ['بيان', 250], ['مدين (+)', 155], ['دائن (-)', 155], ['الرصيد', 195]];
                 const xr = []; let cx = R;
@@ -933,7 +992,6 @@
                     xr.forEach(p => { c.beginPath(); c.moveTo(p[1], y); c.lineTo(p[1], y + 58); c.stroke(); });
                     const mid = i => (xr[i][0] + xr[i][1]) / 2, cy = y + 30;
                     pdfText(c, r.date, mid(0), cy, 25, { align: 'center' });
-                    // الفاتورة / السند: شارة نوع الوثيقة + الرقم
                     let refRight = xr[1][0] - 8, refW = xr[1][0] - xr[1][1] - 16;
                     if (r.badge) {
                         c.font = `700 ${Math.round(20 * PS)}px ${PFONT}`;
@@ -943,7 +1001,6 @@
                         refRight -= bw + 6; refW -= bw + 6;
                     }
                     pdfText(c, r.ref, refRight - refW / 2, cy, 26, { align: 'center', maxW: refW });
-                    // البيان: خط أصغر ويلتف على سطرين للملاحظات الطويلة
                     const lines = pdfLines(c, r.note, 20, xr[2][0] - xr[2][1] - 20, 2);
                     const lh = 22, top = cy - (lines.length - 1) * lh / 2;
                     lines.forEach((ln, li) => pdfText(c, ln, xr[2][0] - 10, top + li * lh, 20, {}));
@@ -954,7 +1011,6 @@
                 });
                 y += 30;
             }
-            // الصناديق + الملاحظة في آخر صفحة
             if (last) {
                 const n = d.boxes.length, gap = 30, bw = d.boxes[0].wide ? PW - 2 * PM : (PW - 2 * PM - gap * (n - 1)) / n;
                 d.boxes.forEach((b, i) => {
@@ -968,14 +1024,12 @@
                 pdfText(c, 'ملاحظة هامة:', R - 24, y + 36, 29, { bold: true, color: '#b91c1c' });
                 pdfWrap(c, 'يرجى مراجعة كشف الحساب جيداً، وفي حال وجود أي خطأ في حسابك أو أي استفسار التواصل معنا على رقم المحل.', R - 24, y + 84, 26, PW - 2 * PM - 48, 40, {});
             }
-            // التذييل
             c.fillStyle = '#4b5563'; c.fillRect(L, PH - 100, PW - 2 * PM, 2);
             pdfText(c, `${(localStorage.getItem('app_shop_name') || '').trim() || 'دفتر الحسابات'} - ${d.title}`, R, PH - 62, 25, { bold: true, color: '#111827', maxW: 800 });
             pdfText(c, `الصفحة ${pageIdx + 1} من ${pages}`, L, PH - 62, 25, { color: '#111827', align: 'left' });
         }
 
         async function pdfJoin(jpegs) {
-            // يجمع صور JPEG في ملف PDF (صفحة A4 لكل صورة)
             const enc = new TextEncoder();
             const parts = []; let offset = 0; const xref = [];
             const push = (x) => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); offset += b.length; };
@@ -987,7 +1041,7 @@
             obj(3, () => push('<< /Producer (Daftar) >>'));
             xref[4] = offset; push('4 0 obj\n<< >>\nendobj\n');
             jpegs.forEach((j, i) => {
-                const img = 3 + 3 * (i + 1) - 0, base = 5 + i * 3; // base=page, base+1=content, base+2=image
+                const img = 3 + 3 * (i + 1) - 0, base = 5 + i * 3;
                 obj(base + 2, () => { push(`<< /Type /XObject /Subtype /Image /Width ${j.w} /Height ${j.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${j.bytes.length} >>\nstream\n`); push(j.bytes); push('\nendstream'); });
                 const cs = 'q 595.28 0 0 841.89 0 0 cm /Im0 Do Q';
                 obj(base + 1, () => push(`<< /Length ${cs.length} >>\nstream\n${cs}\nendstream`));
@@ -1001,9 +1055,8 @@
         }
 
         async function buildPdfBlob(section, person, kind, txId) {
-            try { await document.fonts.load(`700 24px ${PFONT}`); await document.fonts.load(`600 24px ${PFONT}`); } catch (e) { /* خط بديل */ }
+            try { await document.fonts.load(`700 24px ${PFONT}`); await document.fonts.load(`600 24px ${PFONT}`); } catch (e) {}
             const d = pdfBuildRows(section, person, kind, txId);
-            // توزيع الصفوف على الصفحات
             const ROW = 58, cap1 = 20, capN = 25, tail = 360;
             const chunks = [];
             let rest = d.rows.slice();
@@ -1038,7 +1091,7 @@
                         await navigator.share({ files: [file], title: base });
                         closeModal('modal-send');
                     } catch (e) {
-                        if (e && e.name !== 'AbortError') throw e;   // الإلغاء من المستخدم ليس خطأ
+                        if (e && e.name !== 'AbortError') throw e;
                     }
                 } else {
                     const url = URL.createObjectURL(blob);
@@ -1062,7 +1115,7 @@
                 await navigator.clipboard.writeText(ta.value);
             } catch (e) {
                 ta.select();
-                try { document.execCommand('copy'); } catch (e2) { /* لا شيء */ }
+                try { document.execCommand('copy'); } catch (e2) {}
             }
             if (btn) {
                 const old = btn.innerText;
@@ -1083,7 +1136,7 @@
             }
         }
 
-        // --- 4. المزامنة ---
+        // --- المزامنة ---
         function onSyncError(err) {
             console.error('Firestore error:', err);
             if (err && err.code === 'permission-denied' && !window.__permAlerted) {
@@ -1114,7 +1167,6 @@
             });
         }
 
-        // --- 4.1 تسجيل الدخول ---
         function hideLogin() {
             document.getElementById('screen-login').classList.add('hidden');
         }
@@ -1144,8 +1196,7 @@
             updateHomeTotals();
         }
 
-        // --- المستخدمون والصلاحيات ---
-        let me = null;   // { uid, name, role: 'owner'|'accountant', legacy? }
+        let me = null;
         const ROLE_LABEL = { owner: 'مالك', accountant: 'محاسب' };
 
         function isOwner() { return !me || me.role === 'owner'; }
@@ -1177,7 +1228,7 @@
                     details: details || ''
                 });
                 if (p && p.catch) p.catch(() => {});
-            } catch (e) { /* السجل لا يوقف العمل */ }
+            } catch (e) {}
         }
 
         function txDesc(tx) {
@@ -1197,7 +1248,7 @@
                     prof = { uid, name: d.name || nameFrom(), role: d.role === 'owner' ? 'owner' : 'accountant', active: d.active !== false };
                 } else {
                     const any = await db.collection('users').limit(1).get();
-                    if (any.empty) {      // أول دخول للنظام: هذا الحساب يصبح المالك
+                    if (any.empty) {
                         const d = { name: nameFrom(), role: 'owner', active: true, email: user.email || '', createdAt: Date.now() };
                         await ref.set(d);
                         prof = { uid, name: d.name, role: 'owner', active: true };
@@ -1209,7 +1260,7 @@
                 let cached = null;
                 try { cached = JSON.parse(localStorage.getItem(cacheKey) || 'null'); } catch (e) {}
                 if (cached && isOfflineError(err)) prof = cached;
-                else { legacy = true; console.warn('نظام المستخدمين غير متاح (راجع قواعد Firebase):', err && (err.code || err.message)); }
+                else { legacy = true; }
             }
             if (!legacy && prof && (prof.blocked || prof.active === false)) {
                 alert(prof.blocked ? 'حسابك غير مفعّل في النظام. تواصل مع المالك.' : 'تم تعطيل هذا الحساب. تواصل مع المالك.');
@@ -1226,7 +1277,6 @@
             return true;
         }
 
-        // إعدادات المحل المشتركة بين كل الأجهزة (اسم المحل وسطر التعريف)
         function listenShopSettings() {
             try {
                 const ref = db.collection('settings').doc('shop');
@@ -1237,11 +1287,11 @@
                         if (typeof d.info === 'string') localStorage.setItem('app_shop_info', d.info);
                         updateHomeShopNameDisplay();
                     } else if (isOwner() && me && !me.legacy && localStorage.getItem('app_shop_name')) {
-                        pushShopSettings();   // أول مرة: ارفع إعدادات المالك الحالية
+                        pushShopSettings();
                     }
                 }, () => {});
                 unsubs.push(unsub);
-            } catch (e) { /* غير متاح */ }
+            } catch (e) {}
         }
 
         function pushShopSettings() {
@@ -1255,7 +1305,7 @@
         }
 
         function initAuth() {
-            if (!db) { hideLogin(); return; } // وضع محلي بدون سحابة
+            if (!db) { hideLogin(); return; }
             if (!auth) {
                 document.getElementById('login-loading').innerText = 'تعذّر تحميل نظام تسجيل الدخول. تحقق من الاتصال ثم أعد تحميل الصفحة.';
                 return;
@@ -1311,7 +1361,6 @@
             }
         }
 
-        // --- إدارة المستخدمين (للمالك) ---
         async function openUsersModal() {
             if (!isOwner()) return;
             const note = document.getElementById('users-note');
@@ -1319,7 +1368,7 @@
             document.getElementById('nu-error').classList.add('hidden');
             document.getElementById('modal-users').classList.remove('hidden');
             if (me && me.legacy) {
-                note.innerText = 'نظام المستخدمين غير مفعّل: قواعد Firebase لا تسمح بمجموعة users. راجع ملف قواعد Firebase المرفق.';
+                note.innerText = 'نظام المستخدمين غير مفعّل: قواعد Firebase لا تسمح بمجموعة users.';
                 note.classList.remove('hidden');
             }
             await refreshUsers();
@@ -1349,7 +1398,7 @@
                 }).join('');
             } catch (err) {
                 console.error(err);
-                box.innerHTML = '<div class="text-xs text-red-600">تعذّر تحميل المستخدمين (قد تحتاج لتحديث قواعد Firebase).</div>';
+                box.innerHTML = '<div class="text-xs text-red-600">تعذّر تحميل المستخدمين.</div>';
             }
         }
 
@@ -1386,7 +1435,7 @@
             const btn = document.getElementById('nu-btn');
             err.classList.add('hidden');
             const fail = (m) => { err.innerText = m; err.classList.remove('hidden'); };
-            if (!/^[a-z0-9._-]{3,20}$/.test(username)) return fail('اسم المستخدم: 3 إلى 20 حرفاً إنجليزياً أو أرقاماً (يسمح بـ . _ -).');
+            if (!/^[a-z0-9._-]{3,20}$/.test(username)) return fail('اسم المستخدم: 3 إلى 20 حرفاً إنجليزياً أو أرقاماً.');
             if (pass.length < 6) return fail('كلمة المرور 6 أحرف على الأقل.');
             if (!navigator.onLine) return fail('إضافة مستخدم تحتاج اتصالاً بالإنترنت.');
             btn.disabled = true; btn.innerText = 'جاري الإضافة...';
@@ -1404,14 +1453,13 @@
                 refreshUsers();
             } catch (ex) {
                 console.error(ex);
-                const m = { 'auth/email-already-in-use': 'اسم المستخدم مستخدم من قبل.', 'auth/weak-password': 'كلمة المرور ضعيفة.', 'auth/network-request-failed': 'تعذّر الاتصال بالإنترنت.', 'permission-denied': 'قواعد Firebase لا تسمح بإنشاء المستخدمين. راجع ملف القواعد المرفق.' };
+                const m = { 'auth/email-already-in-use': 'اسم المستخدم مستخدم من قبل.', 'auth/weak-password': 'كلمة المرور ضعيفة.', 'auth/network-request-failed': 'تعذّر الاتصال بالإنترنت.', 'permission-denied': 'قواعد Firebase لا تسمح بإنشاء المستخدمين.' };
                 fail(m[ex.code] || ('تعذّر إنشاء المستخدم (' + (ex.code || 'خطأ') + ')'));
             } finally {
                 btn.disabled = false; btn.innerText = 'إضافة';
             }
         }
 
-        // --- سجل النشاط (للمالك) ---
         const ACTION_LABEL = {
             add_tx: '➕ حركة جديدة', edit_tx: '✏️ تعديل حركة', delete_tx: '🗑️ حذف حركة',
             add_person: '👤 إضافة حساب', edit_person: '✏️ تعديل حساب', delete_person: '🗑️ حذف حساب',
@@ -1433,7 +1481,7 @@
                 </div>`).join('') : '<div class="text-slate-500">لا توجد عمليات مسجلة بعد.</div>';
             } catch (err) {
                 console.error(err);
-                box.innerHTML = '<div class="text-red-600">تعذّر تحميل السجل (قد تحتاج لتحديث قواعد Firebase).</div>';
+                box.innerHTML = '<div class="text-red-600">تعذّر تحميل السجل.</div>';
             }
         }
 
@@ -1441,7 +1489,6 @@
             if (auth && confirm('هل تريد تسجيل الخروج؟')) auth.signOut();
         }
 
-        // --- 5. الساعة والتاريخ ---
         function updateClock() {
             const now = new Date();
             const clockEl = document.getElementById('clock');
@@ -1488,7 +1535,6 @@
             }
         }
 
-        // --- 6. التنقل الشاشات ---
         function showScreen(screenId) {
             ['home', 'list', 'detail'].forEach(id => {
                 const el = document.getElementById(`screen-${id}`);
@@ -1521,6 +1567,8 @@
             document.getElementById('input-shop-info').value = localStorage.getItem('app_shop_info') || '';
             document.getElementById('input-dark-mode').checked = localStorage.getItem('app_dark_mode') === 'true';
             document.getElementById('input-show-currency').checked = state.showCurrency;
+            document.getElementById('input-sheets-url').value = localStorage.getItem('app_sheets_url') || '';
+            document.getElementById('input-sheets-secret').value = localStorage.getItem('app_sheets_secret') || '';
             document.getElementById('modal-settings').classList.remove('hidden');
         }
 
@@ -1530,6 +1578,8 @@
                 const shopName = document.getElementById('input-shop-name').value.trim() || 'إسم المحل أو النشاط';
                 localStorage.setItem('app_shop_name', shopName);
                 localStorage.setItem('app_shop_info', document.getElementById('input-shop-info').value.trim());
+                localStorage.setItem('app_sheets_url', document.getElementById('input-sheets-url').value.trim());
+                localStorage.setItem('app_sheets_secret', document.getElementById('input-sheets-secret').value.trim());
                 pushShopSettings();
             }
 
@@ -1638,7 +1688,6 @@
             });
         }
 
-        // --- 7. تعديل وحذف العميل / المعاملة ---
         function openEditPersonModal() {
             const person = state[state.activeSection].find(p => p.id === state.currentPersonId);
             if (!person) return;
@@ -1663,6 +1712,7 @@
             if (delP) logActivity('delete_person', state.activeSection, delP, `حذف حساب برصيد ${moneyMsg(getPersonBalance(delP))} و${(delP.transactions || []).length} حركة`);
             if (db) {
                 dbWrite(db.collection(state.activeSection).doc(personId).delete());
+                notifyGoogleSheets('delete_person', { section: state.activeSection, personId, personName: delP ? delP.name : '' });
             } else {
                 state[state.activeSection] = state[state.activeSection].filter(p => p.id !== personId);
                 localStorage.setItem(`app_${state.activeSection}`, JSON.stringify(state[state.activeSection]));
@@ -1705,7 +1755,10 @@
             try {
                 if (db) {
                     await commitTransactions(section, person, without);
-                    if (delTx) logActivity('delete_tx', section, person, txDesc(delTx));
+                    if (delTx) {
+                        logActivity('delete_tx', section, person, txDesc(delTx));
+                        notifyGoogleSheets('delete_transaction', { section, personName: person.name, txId, txDesc: txDesc(delTx) });
+                    }
                 } else {
                     person.transactions = without(person.transactions);
                     localStorage.setItem(`app_${section}`, JSON.stringify(state[section]));
@@ -1714,11 +1767,10 @@
                 }
             } catch (err) {
                 console.error(err);
-                alert('تعذّر حذف الحركة. تحقق من اتصالك بالإنترنت وحاول مجدداً.');
+                alert('تعذّر حذف الحركة.');
             }
         }
 
-        // --- 8. طباعة التقرير ---
         function printReport() {
             const person = state[state.activeSection].find(p => p.id === state.currentPersonId);
             if (!person) return;
@@ -1772,7 +1824,6 @@
             rpt.classList.add('hidden');
         }
 
-        // --- 9. الحفظ والتحكم بالـ Modals ---
         function openAddModal() {
             document.getElementById('modal-add-title').innerText = state.activeSection === 'customers' ? 'إضافة عميل جديد' : 'إضافة مورد جديد';
             document.getElementById('input-edit-person-id').value = '';
@@ -1816,11 +1867,9 @@
 
                     if (db) {
                         dbWrite(db.collection(state.activeSection).doc(editId).update({
-                            name: person.name,
-                            phone: person.phone,
-                            address: person.address,
-                            initialBalance: newInitial
+                            name: person.name, phone: person.phone, address: person.address, initialBalance: newInitial
                         }));
+                        notifyGoogleSheets('edit_person', { section: state.activeSection, personId: editId, personName: person.name, phone: person.phone });
                     } else {
                         localStorage.setItem(`app_${state.activeSection}`, JSON.stringify(state[state.activeSection]));
                     }
@@ -1846,6 +1895,7 @@
                 if (db) {
                     logActivity('add_person', state.activeSection, newPerson, newPerson.initialBalance ? `رصيد افتتاحي ${moneyMsg(newPerson.initialBalance)}` : '');
                     dbWrite(db.collection(state.activeSection).doc(id).set(newPerson));
+                    notifyGoogleSheets('add_person', { section: state.activeSection, personName: newPerson.name, initialBalance: newPerson.initialBalance });
                 } else {
                     state[state.activeSection].push(newPerson);
                     localStorage.setItem(`app_${state.activeSection}`, JSON.stringify(state[state.activeSection]));
@@ -1873,7 +1923,6 @@
                 return;
             }
 
-            // تنبيه عند تسديد مبلغ أكبر من الرصيد الحالي
             if (type === 'pay') {
                 const others = { ...person, transactions: (person.transactions || []).filter(t => !editTxId || t.id != editTxId) };
                 const balBefore = getPersonBalance(others);
@@ -1910,6 +1959,7 @@
                 if (db) {
                     await commitTransactions(section, person, apply);
                     logActivity(oldTx ? 'edit_tx' : 'add_tx', section, person, oldTx ? `${txDesc(oldTx)} ← ${txDesc(txData)}` : txDesc(txData));
+                    notifyGoogleSheets('save_transaction', { section, personName: person.name, type, amount, date: txData.date, note: txData.note, invoice: txData.invoice });
                 } else {
                     person.transactions = apply(person.transactions);
                     localStorage.setItem(`app_${section}`, JSON.stringify(state[section]));
@@ -1919,11 +1969,55 @@
                 closeModal('modal-transaction');
             } catch (err) {
                 console.error(err);
-                alert('تعذّر حفظ الحركة. تحقق من اتصالك بالإنترنت وحاول مجدداً.');
+                alert('تعذّر حفظ الحركة.');
             }
         }
 
-        // --- 10. النسخ الاحتياطي ---
+        // --- 10. تصدير Excel (متعدد الأوراق بتنسيق CSV مدعوم بالعربية) ---
+        function exportExcel() {
+            let csvContent = "\ufeff"; // BOM لضمان قراءة الحروف العربية بشكل صحيح في Excel
+
+            // 1. ورقة العملاء
+            csvContent += "=== قسم العملاء ===\n";
+            csvContent += "المعرف,الاسم,الهاتف,العنوان,الرصيد الافتتاحي,الرصيد الحالي\n";
+            state.customers.forEach(p => {
+                csvContent += `"${p.id}","${p.name}","${p.phone || ''}","${p.address || ''}",${p.initialBalance || 0},${getPersonBalance(p)}\n`;
+            });
+
+            // 2. ورقة الموردين
+            csvContent += "\n=== قسم الموردين ===\n";
+            csvContent += "المعرف,الاسم,الهاتف,العنوان,الرصيد الافتتاحي,الرصيد الحالي\n";
+            state.suppliers.forEach(p => {
+                csvContent += `"${p.id}","${p.name}","${p.phone || ''}","${p.address || ''}",${p.initialBalance || 0},${getPersonBalance(p)}\n`;
+            });
+
+            // 3. ورقة جميع الحركات
+            csvContent += "\n=== سجل جميع الحركات ===\n";
+            csvContent += "القسم,اسم الشخص,التاريخ,نوع الحركة,المبلغ,نوع الوثيقة,رقم السند/الفاتورة,البيان,المسجل\n";
+            ['customers', 'suppliers'].forEach(sec => {
+                state[sec].forEach(p => {
+                    (p.transactions || []).forEach(t => {
+                        csvContent += `"${sec === 'customers' ? 'عميل' : 'مورد'}","${p.name}","${t.date || ''}","${t.type === 'add' ? 'إضافة دين' : 'تسديد'}",${t.amount},"${t.docType || ''}","${t.invoice || ''}","${t.note || ''}","${t.by || ''}"\n`;
+                    });
+                });
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `daftar-excel-report-${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+            // تحديث وقت النسخ الاحتياطي لإخفاء التنبيه
+            localStorage.setItem('app_last_backup_time', Date.now().toString());
+            checkBackupReminder();
+        }
+
+        // --- التنسيق القديم للـ JSON ---
         function exportData() {
             const data = {
                 app: 'daftar-alhisabat',
@@ -1942,12 +2036,15 @@
             a.click();
             a.remove();
             setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+            localStorage.setItem('app_last_backup_time', Date.now().toString());
+            checkBackupReminder();
         }
 
         function sanitizePerson(p) {
             if (!p || typeof p !== 'object' || !p.name) return null;
             let id = String(p.id || ('ID_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7))).replace(/\//g, '_');
-            if (/^\.+$/.test(id) || /^__.*__$/.test(id)) id = 'imp_' + id;
+            if (/^\.+$/.test(id) \vert{}\vert{} /^__.*__$/.test(id)) id = 'imp_' + id;
             const txs = Array.isArray(p.transactions) ? p.transactions : [];
             return {
                 id: id,
@@ -1974,7 +2071,7 @@
             e.target.value = '';
             if (!file) return;
             if (db && !navigator.onLine) {
-                alert('الاستيراد يحتاج اتصالاً بالإنترنت. أعد المحاولة عند عودة الاتصال.');
+                alert('الاستيراد يحتاج اتصالاً بالإنترنت.');
                 return;
             }
             try {
@@ -1985,8 +2082,7 @@
                     alert('الملف لا يحتوي على بيانات صالحة.');
                     return;
                 }
-                const msg = `سيتم استيراد ${customers.length} عميل و ${suppliers.length} مورد.\nالحسابات التي لها نفس المعرّف سيتم استبدالها، ولن يُحذف أي حساب موجود.\nهل تريد المتابعة؟`;
-                if (!confirm(msg)) return;
+                if (!confirm(`سيتم استيراد ${customers.length} عميل و ${suppliers.length} مورد. متابعة؟`)) return;
 
                 if (db) {
                     const ops = [
@@ -2013,18 +2109,16 @@
                 alert('تم الاستيراد بنجاح.');
             } catch (err) {
                 console.error(err);
-                alert('تعذّر قراءة الملف أو استيراده. تأكد أنه ملف نسخة احتياطية صحيح.');
+                alert('تعذّر قراءة الملف.');
             }
         }
 
-        // البدء والتهيئة
         initThemeAndConfig();
         updateSyncBadge();
 
-        // تسجيل service worker ليعمل التطبيق بدون إنترنت
         if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js').catch((e) => console.warn('تعذّر تسجيل sw.js:', e));
+                navigator.serviceWorker.register('sw.js').catch((e) => console.warn(e));
             });
         }
         updateHomeTotals();
